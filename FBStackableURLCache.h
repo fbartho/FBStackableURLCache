@@ -29,14 +29,17 @@ extern NSString * kFBSURLCacheDateSavedKey;
  */
 - (NSString*)registerCacheInclusionFilter:(BOOL (^)(NSURLRequest * request))returnYESToInclude
 								   lookup:(NSCachedURLResponse* (^)(NSURLRequest* request))lookup
-								  storage:(void (^)(NSCachedURLResponse* response, NSURLRequest * request))storage;
+								  storage:(void (^)(NSCachedURLResponse* response, NSURLRequest * request))storage
+							 invalidation:(void (^)(NSURLRequest* request))invalidation __attribute__((nonnull (1,2,3)));
+/**
+ * Pass an identifier previously returned from registerCacheInclusionFilter to deregister that filter.
+ */
 - (void)deregisterCacheInclusionFilterByIdentifier:(NSString*)identifier;
 
 /**
  * If you need to bypass the FBStackableURLCache logic,, access the methods through this proxy object
  */
 @property (nonatomic, readonly, strong) FBUnderlyingCache* underlyingCache;
-
 
 /**
  * If NSURLCache (StackableURLCaching) category is in play, then if someone calls setSharedURLCache with a non FBStackableURLCache subclass, the new cache will be stored here.
@@ -48,4 +51,14 @@ extern NSString * kFBSURLCacheDateSavedKey;
 @interface FBUnderlyingCache : NSObject
 - (NSCachedURLResponse *)cachedResponseForRequest:(NSURLRequest *)request;
 - (void)storeCachedResponse:(NSCachedURLResponse *)cachedResponse forRequest:(NSURLRequest *)request;
+- (void)removeCachedResponseForRequest:(NSURLRequest *)request;
+@end
+
+/**
+ * Deprecated APIs
+ */
+@interface FBStackableURLCache ()
+- (NSString*)registerCacheInclusionFilter:(BOOL (^)(NSURLRequest * request))returnYESToInclude
+								   lookup:(NSCachedURLResponse* (^)(NSURLRequest* request))lookup
+								  storage:(void (^)(NSCachedURLResponse* response, NSURLRequest * request))storage DEPRECATED_ATTRIBUTE;
 @end

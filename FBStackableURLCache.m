@@ -50,9 +50,10 @@ NSString * FBStackableIdentifier(){
 @property (nonatomic, readwrite, copy) BOOL (^include)(NSURLRequest * request);
 @property (nonatomic, readwrite, copy) NSCachedURLResponse* (^lookup)(NSURLRequest* request);
 @property (nonatomic, readwrite, copy) void (^store)(NSCachedURLResponse* response, NSURLRequest * request);
+@property (nonatomic, readwrite, copy) void (^invalidate)(NSURLRequest* request);
 @end
 @implementation FBStackableURLFilter
-@synthesize include, lookup, store;
+@synthesize include, lookup, store, invalidate;
 - (NSString *)description
 {
 	return [NSString stringWithFormat:@"<FBStackableURLExclusion:%p identifier:%@ include:%@ lookup:%@ store:%@>",self, self.identifier, self.include, self.lookup, self.store];
@@ -112,10 +113,19 @@ NSString * FBStackableIdentifier(){
 }
 - (NSString*)registerCacheInclusionFilter:(BOOL (^)(NSURLRequest *))returnYESToInclude lookup:(NSCachedURLResponse *(^)(NSURLRequest *))lookup storage:(void (^)(NSCachedURLResponse *, NSURLRequest *))storage
 {
+	return [self registerCacheInclusionFilter:returnYESToInclude lookup:lookup storage:storage invalidation:nil];
+}
+
+- (NSString*)registerCacheInclusionFilter:(BOOL (^)(NSURLRequest *))returnYESToInclude
+								   lookup:(NSCachedURLResponse *(^)(NSURLRequest *))lookup
+								  storage:(void (^)(NSCachedURLResponse *, NSURLRequest *))storage
+							 invalidation:(void (^)(NSURLRequest *))invalidation
+{
 	FBStackableURLFilter * filter = [[FBStackableURLFilter alloc] init];
 	filter.include = returnYESToInclude;
 	filter.lookup = lookup;
 	filter.store = storage;
+	filter.invalidate = invalidation;
 	[filters addObject:filter];
 	return filter.identifier;
 }
@@ -185,7 +195,11 @@ NSString * FBStackableIdentifier(){
 {
 	FBStackableURLFilter * filter = [self _filterForRequest:request];
 	if (filter){
-		filter.store(nil,request);
+		if (filter.invalidate) {
+			filter.invalidate(request);
+		} else {
+			filter.store(nil,request);
+		}
 		return;
 	}
 	
@@ -206,6 +220,10 @@ NSString * FBStackableIdentifier(){
 - (NSCachedURLResponse*)super_cachedResponseForRequest:(NSURLRequest *)request
 {
 	return [super cachedResponseForRequest:request];
+}
+- (void)super_removeCachedResponseForRequest:(NSURLRequest*)request
+{
+	return [super removeCachedResponseForRequest:request];
 }
 @end
 @implementation FBUnderlyingCache
@@ -228,5 +246,10 @@ NSString * FBStackableIdentifier(){
 {
 	FBStackableURLCache * tmp = parentCache;
 	return [tmp super_cachedResponseForRequest:request];
+}
+- (void)removeCachedResponseForRequest:(NSURLRequest *)request
+{
+	FBStackableURLCache * tmp = parentCache;
+	return [tmp super_removeCachedResponseForRequest:request];
 }
 @end
